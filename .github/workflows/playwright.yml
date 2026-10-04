@@ -1,0 +1,73 @@
+
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    env:
+      API_KEY: e2e-testnyckel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Start application
+        run: docker compose up -d --build
+
+      - name: Wait for application
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/login >/dev/null; then
+              echo "Application is ready"
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo "Application did not start on port 8080"
+          docker compose ps
+          docker compose logs
+          exit 1
+
+      - name: Check application
+        if: always()
+        run: |
+          docker compose ps
+          docker compose logs
+
+      - name: Run Playwright tests
+        env:
+          E2E_SERVER: preview
+          API_KEY: e2e-testnyckel
+          FEATURE_NORWAY: "true"
+        run: npx playwright test
+
+      - name: Stop application
+        if: always()
+        run: docker compose down
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

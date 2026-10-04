@@ -1,0 +1,20 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: ''
+    ports:
+      - "8080:80"
+    environment:
+      PORT: 80
+      API_URL: http://api:4000
+      API_KEY: ${API_KEY:?API_KEY saknas – kör cp .env.example .env}
+    depends_on:
+      - api
+  api:
+    build:
+      context: .
+      dockerfile: mock-api/Dockerfile
+    environment:
+      API_KEY: ${API_KEY:?API_KEY saknas – kör cp .env.example .env}

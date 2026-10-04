@@ -1,0 +1,252 @@
+name: CI/CD
+
+on:
+  pull_request:
+
+  push:
+    branches: [main]
+
+  # Gör att workflowen kan startas manuellt
+  workflow_dispatch:
+
+# PR-körningar får avbrytas om en ny commit pushas.
+# Deploy på main får däremot inte avbrytas.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+
+  verify:
+    name: Test & bygg
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test:run
+      - run: npm run build
+
+
+  publish:
+    name: Image → GHCR
+    runs-on: ubuntu-latest
+    needs: verify
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Imagenamn
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Bygg imagen
+        run: |
+          docker build \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            -t "$IMAGE:${{ github.sha }}" \
+            -t "$IMAGE:main" .
+
+      # På PR byggs imagen men pushas inte.
+      - name: Visa image
+        run: docker image ls "$IMAGE"
+
+      - name: Logga in på GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pusha
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:main"
+
+
+  deploy-staging:
+    name: Deploy → staging
+    runs-on: ubuntu-latest
+    needs: publish
+
+    # Deploy körs bara efter merge/push till main.
+    # På PR blir jobbet skipped.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+
+    steps:
+
+      - name: Be Render köra exakt den här imagen
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
+        run: |
+          : "${HOOK:?RENDER_DEPLOY_HOOK saknas i miljön staging}"
+
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
+          ENCODED=$(jq -rn --arg u "$IMAGE" '$u|@uri')
+
+          curl -fsS -X POST "${HOOK}&imgURL=${ENCODED}"
+
+          echo
+          echo "Render har tagit emot $IMAGE"
+
+
+      - name: Vänta tills staging kör den här committen
+        env:
+          URL: ${{ vars.STAGING_URL }}
+
+        run: |
+          : "${URL:?STAGING_URL saknas i miljön staging}"
+          URL="${URL%/}"
+
+          for i in $(seq 1 30); do
+            HTTP=$(curl -sS -o /tmp/version.txt -w "%{http_code}" "$URL/version.txt" || true)
+            LIVE=$(cat /tmp/version.txt 2>/dev/null || true)
+
+            if [ "$HTTP" = "200" ] && [ "$LIVE" = "$GITHUB_SHA" ]; then
+              echo "✅ $URL kör $GITHUB_SHA"
+              exit 0
+            fi
+
+            echo "Försök $i/30: HTTP $HTTP, staging kör ${LIVE:-(inget svar ännu)} – väntar 10 s"
+            sleep 10
+          done
+
+          echo "::error::Staging kör inte $GITHUB_SHA efter 5 minuter. Kolla Events/Logs i Render."
+          exit 1
+
+
+      # Kontrollerar att /api fungerar genom nginx/proxyn.
+      - name: Röktest – går inloggningen genom proxyn?
+        env:
+          URL: ${{ vars.STAGING_URL }}
+        run: |
+          URL="${URL%/}"
+
+          HTTP=$(curl -sS -o /tmp/login-response.txt -w "%{http_code}" \
+            -X POST \
+            "$URL/api/login" \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"a@b.se","password":"x"}' || true)
+
+          echo "HTTP status: $HTTP"
+          cat /tmp/login-response.txt || true
+
+          if [ "$HTTP" = "200" ] || [ "$HTTP" = "401" ]; then
+            echo "✅ /api svarar via nginx med nyckeln från Render"
+            exit 0
+          fi
+
+          echo "::error::Staging /api/login svarade HTTP $HTTP"
+          exit 1
+
+  deploy-production:
+    name: Deploy → produktion
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+
+    # Production körs bara efter att staging är godkänt/verifierat.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+
+    # Miljön "production" har required reviewers.
+    # Jobbet väntar tills någon godkänner under:
+    # Actions → körningen → Review deployments.
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL }}
+
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+
+      - name: Be Render köra exakt den här imagen i produktion
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
+        run: |
+          : "${HOOK:?RENDER_DEPLOY_HOOK saknas i miljön production}"
+
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
+          ENCODED=$(jq -rn --arg u "$IMAGE" '$u|@uri')
+
+          curl -fsS -X POST "${HOOK}&imgURL=${ENCODED}"
+
+          echo
+          echo "Render har tagit emot $IMAGE (produktion)"
+
+
+      - name: Vänta tills produktion kör den här committen
+        env:
+          URL: ${{ vars.PROD_URL }}
+
+        run: |
+          : "${URL:?PROD_URL saknas i miljön production}"
+          URL="${URL%/}"
+
+          for i in $(seq 1 30); do
+            HTTP=$(curl -sS -o /tmp/version.txt -w "%{http_code}" "$URL/version.txt" || true)
+            LIVE=$(cat /tmp/version.txt 2>/dev/null || true)
+
+            if [ "$HTTP" = "200" ] && [ "$LIVE" = "$GITHUB_SHA" ]; then
+              echo "✅ $URL kör $GITHUB_SHA"
+              exit 0
+            fi
+
+            echo "Försök $i/30: HTTP $HTTP, produktion kör ${LIVE:-(inget svar ännu)} – väntar 10 s"
+            sleep 10
+          done
+
+          echo "::error::Produktion kör inte $GITHUB_SHA efter 5 minuter. Kolla Events/Logs i Render."
+          exit 1
+
+
+      - name: Röktest – svarar produktion utan Norge-kortet?
+        env:
+          URL: ${{ vars.PROD_URL }}
+        run: |
+          URL="${URL%/}"
+
+          HTTP=$(curl -sS -o /tmp/login-response.txt -w "%{http_code}" \
+            -X POST \
+            "$URL/api/login" \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"a@b.se","password":"x"}' || true)
+
+          echo "HTTP status: $HTTP"
+          cat /tmp/login-response.txt || true
+
+          if [ "$HTTP" != "200" ] && [ "$HTTP" != "401" ]; then
+            echo "::error::Production /api/login svarade HTTP $HTTP"
+            exit 1
+          fi
+
+          if curl -fsS "$URL/config.js" | grep -q "norway: false"; then
+            echo "✅ /api svarar och FEATURE_NORWAY är av i produktion"
+          else
+            echo "::error::Norge-flaggan är PÅ i produktion – kontrollera FEATURE_NORWAY i Render"
+            exit 1
+          fi

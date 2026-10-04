@@ -1,0 +1,74 @@
+{
+  "name": "kraftly-mina-sidor",
+  "version": "0.9.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "api": "node mock-api/server.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "e2e:pw": "playwright test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "chart.js": "^4.4.7",
+    "express": "^4.21.2",
+    "jsdom": "^30.0.1",
+    "lodash": "^4.17.21",
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/vue": "^8.1.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.5.0",
+    "cypress": "^15.21.1",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.10.0",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "jsdom": "^30.0.1",
+    "lint-staged": "^17.4.1",
+    "prettier": "^3.9.6",
+    "start-server-and-test": "^3.0.12",
+    "vite": "^6.0.7",
+    "vitest": "^4.1.11"
+  },
+  "description": "Customer portal for Kraftly. Delivered by Webbmakarna AB 2026-06-30.",
+  "main": "vite.config.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suzan-al-majdalawi/kraftly-suzan-team.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/suzan-al-majdalawi/kraftly-suzan-team/issues"
+  },
+  "homepage": "https://github.com/suzan-al-majdalawi/kraftly-suzan-team#readme"
+}

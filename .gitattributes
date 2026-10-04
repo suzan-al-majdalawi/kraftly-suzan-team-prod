@@ -1,0 +1,2 @@
+# Indicate that all files are text and should use LF line endings - Det gör att Git behandlar .sh-filer med Unix-radslut.(ChatGPT)
+*.sh text eol=lf
