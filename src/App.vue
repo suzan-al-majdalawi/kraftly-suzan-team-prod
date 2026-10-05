@@ -2,10 +2,12 @@
   <div v-if="appEnv !== 'production'" class="env-banner">
     {{ appEnv.toUpperCase() }}
   </div>
+
   <div>
     <header v-if="$route.path !== '/login'" class="topbar">
       <div class="topbar-inner container">
         <img src="./assets/logo.svg" class="logo" />
+
         <nav>
           <RouterLink to="/">Översikt</RouterLink>
           <RouterLink to="/fakturor">Fakturor</RouterLink>
@@ -15,6 +17,7 @@
         </nav>
       </div>
     </header>
+
     <main class="container">
       <RouterView />
     </main>
@@ -22,14 +25,33 @@
 </template>
 
 <script setup>
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { refresh } from "./services/api";
+import { setAccessToken } from "./services/token";
 
 const router = useRouter();
-// Sätts av containern vid start (public/config.js lokalt). Syns i alla miljöer utom prod.
+
+// Sätts av containern vid start (public/config.js lokalt).
+// Syns i alla miljöer utom prod.
 const appEnv = window.__KRAFTLY__?.env ?? "lokal";
 
+// Försök återställa sessionen vid appstart.
+// Access-token ligger bara i minnet, medan refresh-cookien
+// gör det möjligt att hämta en ny access-token efter F5.
+onMounted(async () => {
+  try {
+    await refresh();
+  } catch {
+    setAccessToken(null);
+  }
+});
+
 const logout = () => {
-  localStorage.removeItem("kraftly_logged_in");
+  // Access-token finns bara i minnet.
+  // Ingen localStorage används för autentisering.
+  setAccessToken(null);
+
   router.push("/login");
 };
 </script>
@@ -38,6 +60,7 @@ const logout = () => {
 .topbar {
   background: #101d3d;
 }
+
 .topbar-inner {
   display: flex;
   align-items: center;
@@ -45,9 +68,11 @@ const logout = () => {
   padding-top: 14px;
   padding-bottom: 14px;
 }
+
 .logo {
   height: 30px;
 }
+
 .topbar nav a,
 .logout {
   color: #c2cbe4;
@@ -56,10 +81,12 @@ const logout = () => {
   font-size: 14.5px;
   cursor: pointer;
 }
+
 .topbar nav a.router-link-active {
   color: #fff;
   font-weight: 600;
 }
+
 .env-banner {
   background: #f5a524;
   color: #101d3d;

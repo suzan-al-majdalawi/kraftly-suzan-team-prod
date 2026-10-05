@@ -10,4 +10,25 @@ test("Här kan användaren logga in på systemet", async ({ page }) => {
 
   await expect(page).toHaveURL("http://localhost:8080/");
   await expect(page.getByText("Mina uppgifter")).toBeVisible();
+
+  // Access token ska inte sparas i localStorage.
+  expect(await page.evaluate(() => localStorage.length)).toBe(0);
+});
+
+test("Felaktiga inloggningsuppgifter visar felmeddelande", async ({ page }) => {
+  await page.goto("http://localhost:8080/login");
+
+  await page.getByPlaceholder("E-postadress").fill("fel@example.com");
+  await page.getByPlaceholder("Lösenord").fill("fel-lösenord");
+
+  await page.getByRole("button", { name: "Logga in" }).click();
+
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Fel e-postadress eller lösenord.",
+  );
+
+  await expect(page).toHaveURL("http://localhost:8080/login");
+
+  expect(await page.evaluate(() => localStorage.length)).toBe(0);
 });

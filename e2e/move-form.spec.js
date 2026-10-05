@@ -12,7 +12,9 @@ test("Tom flyttanmälan ska inte kunna skickas", async ({ page }) => {
 
   await page.goto("http://localhost:8080/flytt");
 
-  await page.getByRole("button", { name: "Skicka flyttanmälan" }).click();
+  await page
+    .getByRole("button", { name: "Skicka flyttanmälan" })
+    .click();
 
   await expect(
     page.getByText("Fyll i alla uppgifter innan du skickar flyttanmälan."),
