@@ -1,8 +1,14 @@
 <template>
   <div>
     <img src="../assets/hero.png" class="hero" />
-    <h1 v-if="userStore.user">Hej {{ userStore.user.name.split(" ")[0] }}!</h1>
-    <h1 v-else>Hej!</h1>
+
+      <h1 v-if="userStore.user">
+        Hej {{ firstName(userStore.user.name) }}!
+      </h1>
+
+      <h1 v-else>
+        Hej!
+      </h1>
 
     <div class="stats">
       <div class="card stat">
@@ -52,12 +58,13 @@ import { computed, onMounted, onBeforeUnmount } from "vue";
 import { useUserStore } from "../stores/user";
 import { useConsumptionStore } from "../stores/consumption";
 import ConsumptionChart from "../components/ConsumptionChart.vue";
+import { firstName } from "../utils/user";
 
 const userStore = useUserStore();
 const consumptionStore = useConsumptionStore();
 
 const latestMonth = computed(() => {
-  var d = consumptionStore.data;
+  const d = consumptionStore.data;
   return d ? d.values[d.values.length - 1] : "–";
 });
 

@@ -1,7 +1,21 @@
-export function fullName(name) {
-  return name;
-}
+import { defineStore } from "pinia";
+import { fetchUser } from "../api";
 
-export function firstName(fullName) {
-  return fullName.split(" ")[0];
-}
+export const useUserStore = defineStore("user", {
+  state: () => ({
+    user: null,
+    loading: false,
+  }),
+
+  actions: {
+    async load() {
+      this.loading = true;
+
+      try {
+        this.user = await fetchUser();
+      } finally {
+        this.loading = false;
+      }
+    },
+  },
+});
