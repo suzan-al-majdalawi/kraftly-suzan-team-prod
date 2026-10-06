@@ -3,7 +3,6 @@
 // Ingen nyckel här. Allt i frontendkoden hamnar i JavaScript-filen som browsern laddar
 // ner – en nyckel här är publik för alla som trycker F12. Appen anropar /api relativt.
 // Servern framför appen (Vite lokalt, nginx i containern) lägger på nyckeln.
-
 import { getAccessToken, setAccessToken } from "./token";
 
 const BASE_URL = "";
