@@ -96,6 +96,8 @@ export const refresh = async () => {
   return data;
 };
 
+export const refreshAccessToken = refresh;
+
 export const fetchUser = () => request("/api/v2/user");
 
 export const fetchConsumption = () =>

@@ -57,8 +57,13 @@ app.get("/healthz", (req, res) => {
   res.json({ ok: true });
 });
 
-// Alla /api-anrop kräver giltig API-nyckel.
+// Auth-endpoints är publika för inloggning och refresh.
+// Övriga /api-anrop kräver giltig API-nyckel.
 app.use("/api", (req, res, next) => {
+  if (req.path === "/login" || req.path.startsWith("/v2/auth/")) {
+    return next();
+  }
+
   const client = keys.get(req.get("X-Api-Key"));
 
   if (!client) {
@@ -74,6 +79,11 @@ app.use("/api", (req, res, next) => {
   console.log(`[${client}] ${req.method} ${req.originalUrl}`);
   next();
 });
+
+const VALID_EMAIL = process.env.TEST_EMAIL || "newemail@email.com";
+const VALID_PASSWORD = process.env.TEST_PASSWORD || "password12!";
+const validAccessTokens = new Set();
+let currentRefreshToken = "mock-refresh-token";
 
 const user = {
   id: 1,
@@ -149,26 +159,103 @@ const consumption = {
   pricePerKwh: 1.42,
 };
 
+const requireBearerToken = (req, res, next) => {
+  const authHeader = req.get("Authorization") || "";
+  const providedToken = authHeader.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : "";
+
+  if (!providedToken || !validAccessTokens.has(providedToken)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  next();
+};
+
 app.post("/api/login", (req, res) => {
-  res.json({
-    token: "fake-token-123",
-    name: user.name,
+  const { email, password } = req.body || {};
+
+  if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+    const accessToken = `mock-access-${Date.now()}-${Math.random()}`;
+    validAccessTokens.add(accessToken);
+    currentRefreshToken = `mock-refresh-${Date.now()}`;
+
+    return res.json({
+      token: accessToken,
+      name: user.name,
+    });
+  }
+
+  return res.status(401).json({
+    error: "Fel e-postadress eller lösenord.",
   });
 });
 
-app.get("/api/user", (req, res) => {
+app.post("/api/v2/auth/login", (req, res) => {
+  const { email, password } = req.body || {};
+
+  if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+    const accessToken = `mock-access-${Date.now()}-${Math.random()}`;
+    validAccessTokens.add(accessToken);
+    currentRefreshToken = `mock-refresh-${Date.now()}`;
+
+    return res.json({
+      accessToken,
+      refreshToken: currentRefreshToken,
+    });
+  }
+
+  return res.status(401).json({
+    error: "Fel e-postadress eller lösenord.",
+  });
+});
+
+app.post("/api/v2/auth/refresh", (req, res) => {
+  if (!currentRefreshToken) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const accessToken = `mock-access-${Date.now()}-${Math.random()}`;
+  validAccessTokens.add(accessToken);
+  currentRefreshToken = `mock-refresh-${Date.now()}`;
+
+  res.cookie("refreshToken", currentRefreshToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return res.json({
+    accessToken,
+    refreshToken: currentRefreshToken,
+  });
+});
+
+app.get("/api/user", requireBearerToken, (req, res) => {
   res.json(user);
 });
 
-app.get("/api/consumption", (req, res) => {
+app.get("/api/v2/user", requireBearerToken, (req, res) => {
+  res.json(user);
+});
+
+app.get("/api/consumption", requireBearerToken, (req, res) => {
   setTimeout(() => res.json(consumption), 600);
 });
 
-app.get("/api/invoices", (req, res) => {
+app.get("/api/v2/consumption", requireBearerToken, (req, res) => {
+  setTimeout(() => res.json(consumption), 600);
+});
+
+app.get("/api/invoices", requireBearerToken, (req, res) => {
   res.json(invoices);
 });
 
-app.post("/api/move", (req, res) => {
+app.get("/api/v2/invoices", requireBearerToken, (req, res) => {
+  res.json(invoices);
+});
+
+app.post("/api/move", requireBearerToken, (req, res) => {
   console.log("Move request:", req.body);
 
   res.json({
@@ -177,7 +264,21 @@ app.post("/api/move", (req, res) => {
   });
 });
 
-app.put("/api/user", (req, res) => {
+app.post("/api/v2/move", requireBearerToken, (req, res) => {
+  console.log("Move request:", req.body);
+
+  res.json({
+    ok: true,
+    ref: "FLYTT-" + Math.floor(Math.random() * 90000 + 10000),
+  });
+});
+
+app.put("/api/user", requireBearerToken, (req, res) => {
+  Object.assign(user, req.body);
+  res.json(user);
+});
+
+app.put("/api/v2/user", requireBearerToken, (req, res) => {
   Object.assign(user, req.body);
   res.json(user);
 });
