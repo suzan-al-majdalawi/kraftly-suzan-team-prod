@@ -13,6 +13,7 @@ FROM nginx:1.27-alpine
 
 # Mall, inte färdig config: PORT, API_URL och API_KEY kommer från miljön vid start.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/security-headers.conf /etc/nginx/security-headers.conf
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY docker/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
