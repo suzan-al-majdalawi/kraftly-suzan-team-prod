@@ -1,8 +1,9 @@
 // API client for Kraftly "Mina sidor"
 //
-// Ingen nyckel här. Allt i frontendkoden hamnar i JavaScript-filen som browsern laddar
-// ner – en nyckel här är publik för alla som trycker F12. Appen anropar /api relativt.
-// Servern framför appen (Vite lokalt, nginx i containern) lägger på nyckeln.
+// Ingen API-nyckel här. Frontendkod är synlig i browsern.
+// Appen anropar /api relativt.
+// Servern framför appen hanterar eventuell API-nyckel.
+
 import { getAccessToken, setAccessToken } from "./token";
 
 const BASE_URL = "";
@@ -15,8 +16,8 @@ const request = async (path, options = {}, retry = true) => {
     ...options.headers,
   };
 
-  // Login och refresh behöver inte en access token.
-  // Övriga anrop skickar Bearer-token.
+  // Login och refresh behöver ingen Bearer-token.
+  // Övriga anrop skickar access token.
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -27,8 +28,12 @@ const request = async (path, options = {}, retry = true) => {
   });
 
   // Access token har gått ut.
-  // Försök hämta en ny token och gör sedan originalanropet en gång till.
-  if (res.status === 401 && retry && path !== "/api/v2/auth/refresh") {
+  // Försök refresh:a och gör sedan originalanropet en gång till.
+  if (
+    res.status === 401 &&
+    retry &&
+    path !== "/api/v2/auth/refresh"
+  ) {
     try {
       const refreshRes = await fetch(
         BASE_URL + "/api/v2/auth/refresh",
@@ -66,12 +71,17 @@ const request = async (path, options = {}, retry = true) => {
   return res.json();
 };
 
+// Login
 export const login = (email, password) =>
   request("/api/v2/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+    }),
   });
-  
+
+// Refresh access token
 export const refresh = async () => {
   const res = await fetch(
     BASE_URL + "/api/v2/auth/refresh",
@@ -98,20 +108,26 @@ export const refresh = async () => {
 
 export const refreshAccessToken = refresh;
 
-export const fetchUser = () => request("/api/v2/user");
+// User
+export const fetchUser = () =>
+  request("/api/v2/user");
 
+// Consumption
 export const fetchConsumption = () =>
   request("/api/v2/consumption");
 
+// Invoices
 export const fetchInvoices = () =>
   request("/api/v2/invoices");
 
+// Move
 export const submitMove = (data) =>
   request("/api/v2/move", {
     method: "POST",
     body: JSON.stringify(data),
   });
 
+// Save user
 export const saveUser = (data) =>
   request("/api/v2/user", {
     method: "PUT",
