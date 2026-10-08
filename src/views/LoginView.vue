@@ -46,7 +46,7 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { login } from "../services/api";
-import { setAccessToken } from "../services/token";
+import { getAccessToken, setAccessToken } from "../services/token";
 
 const email = ref("");
 const password = ref("");
@@ -62,14 +62,26 @@ const handleLogin = async () => {
   try {
     const data = await login(email.value, password.value);
 
+    if (!data?.accessToken) {
+      throw new Error("Login response saknar accessToken");
+    }
+
     setAccessToken(data.accessToken);
 
+    console.log("TOKEN SAVED:", Boolean(getAccessToken()));
+
     await router.push("/");
-  } catch {
-    errorMessage.value = "Fel e-postadress eller lösenord.";
-  } finally {
-    loading.value = false;
-  }
+
+    console.log(
+      "ROUTE AFTER LOGIN:",
+      router.currentRoute.value.fullPath
+    );
+} catch (error) {
+  console.error("LOGIN FLOW ERROR:", error);
+  errorMessage.value = "Fel e-postadress eller lösenord.";
+} finally {
+  loading.value = false;
+}
 };
 </script>
 
