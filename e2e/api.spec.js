@@ -1,20 +1,33 @@
 import { test, expect } from '@playwright/test'
 
-const API_URL = process.env.API_URL || 'http://localhost:4000'
-const API_KEY = process.env.API_KEY || 'lokal-utvecklingsnyckel'
-const TEST_EMAIL = process.env.TEST_EMAIL || 'newemail@email.com'
-const TEST_PASSWORD = process.env.TEST_PASSWORD || 'password12!'
+const API_URL =
+  process.env.API_URL || 'http://localhost:4000'
+
+const API_KEY =
+  process.env.API_KEY || 'lokal-utvecklingsnyckel'
+
+const TEST_EMAIL =
+  process.env.TEST_EMAIL || 'anna.andersson@example.com'
+
+const TEST_PASSWORD =
+  process.env.TEST_PASSWORD || 'kraftly-anna'
 
 test.describe('API', () => {
   let accessToken
 
   test.beforeAll(async ({ request }) => {
-    const response = await request.post(`${API_URL}/api/v2/auth/login`, {
-      data: {
-        email: TEST_EMAIL,
-        password: TEST_PASSWORD,
-      },
-    })
+    const response = await request.post(
+      `${API_URL}/api/v2/auth/login`,
+      {
+        data: {
+          email: TEST_EMAIL,
+          password: TEST_PASSWORD,
+        },
+      }
+    )
+
+    console.log('LOGIN STATUS:', response.status())
+    console.log('LOGIN BODY:', await response.text())
 
     expect(response.status()).toBe(200)
 
@@ -31,12 +44,15 @@ test.describe('API', () => {
   })
 
   test('logs in a user without Bearer token', async ({ request }) => {
-    const response = await request.post(`${API_URL}/api/v2/auth/login`, {
-      data: {
-        email: TEST_EMAIL,
-        password: TEST_PASSWORD,
-      },
-    })
+    const response = await request.post(
+      `${API_URL}/api/v2/auth/login`,
+      {
+        data: {
+          email: TEST_EMAIL,
+          password: TEST_PASSWORD,
+        },
+      }
+    )
 
     expect(response.status()).toBe(200)
 
@@ -46,9 +62,12 @@ test.describe('API', () => {
   })
 
   test('fetches the user with Bearer token', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/v2/user`, {
-      headers: authenticatedHeaders(),
-    })
+    const response = await request.get(
+      `${API_URL}/api/v2/user`,
+      {
+        headers: authenticatedHeaders(),
+      }
+    )
 
     expect(response.status()).toBe(200)
 
@@ -58,9 +77,12 @@ test.describe('API', () => {
   })
 
   test('fetches consumption', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/v2/consumption`, {
-      headers: authenticatedHeaders(),
-    })
+    const response = await request.get(
+      `${API_URL}/api/v2/consumption`,
+      {
+        headers: authenticatedHeaders(),
+      }
+    )
 
     expect(response.status()).toBe(200)
 
@@ -70,9 +92,12 @@ test.describe('API', () => {
   })
 
   test('fetches invoices', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/v2/invoices`, {
-      headers: authenticatedHeaders(),
-    })
+    const response = await request.get(
+      `${API_URL}/api/v2/invoices`,
+      {
+        headers: authenticatedHeaders(),
+      }
+    )
 
     expect(response.status()).toBe(200)
 
@@ -82,9 +107,14 @@ test.describe('API', () => {
   })
 
   test('rejects requests without token', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/v2/invoices`, {
-      headers: { 'X-Api-Key': API_KEY },
-    })
+    const response = await request.get(
+      `${API_URL}/api/v2/invoices`,
+      {
+        headers: {
+          'X-Api-Key': API_KEY,
+        },
+      }
+    )
 
     expect(response.status()).toBe(401)
   })
@@ -98,10 +128,13 @@ test.describe('API', () => {
       contract: 'Rörligt pris',
     }
 
-    const response = await request.post(`${API_URL}/api/v2/move`, {
-      headers: authenticatedHeaders(),
-      data: moveData,
-    })
+    const response = await request.post(
+      `${API_URL}/api/v2/move`,
+      {
+        headers: authenticatedHeaders(),
+        data: moveData,
+      }
+    )
 
     expect(response.status()).toBe(200)
 
@@ -117,10 +150,13 @@ test.describe('API', () => {
       address: 'Solvägen 12',
     }
 
-    const response = await request.put(`${API_URL}/api/v2/user`, {
-      headers: authenticatedHeaders(),
-      data: userData,
-    })
+    const response = await request.put(
+      `${API_URL}/api/v2/user`,
+      {
+        headers: authenticatedHeaders(),
+        data: userData,
+      }
+    )
 
     expect(response.status()).toBe(200)
 
